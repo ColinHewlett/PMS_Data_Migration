@@ -94,8 +94,15 @@ public class SQLExpressStore extends Store {
         private int filteredAppointmentCount = 0;
         private int unfilteredAppointmentCount = 0;
         private int nonExistingPatientsReferencedByAppointmentsCount = 0;
+        private int appointmentCount = 0;
         private int patientCount = 0;
         
+        public int getAppointmentCount(){
+            return appointmentCount; 
+        }
+        public void setAppointmentCount(int value){
+            appointmentCount = value;
+        }
         
         public int getPatientCount(){
             return patientCount; 

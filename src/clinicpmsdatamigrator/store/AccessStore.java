@@ -9,12 +9,9 @@ import clinicpmsdatamigrator.model.Appointment;
 import clinicpmsdatamigrator.model.Patient;
 import clinicpmsdatamigrator.store.interfaces.IMigrationManager;
 import clinicpmsdatamigrator.store.exceptions.StoreException;
-import com.opencsv.CSVWriter;
-import java.io.BufferedWriter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.*;
 import java.time.Duration;
@@ -24,7 +21,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 
 
 /**
@@ -54,17 +50,12 @@ public class AccessStore extends Store {
     private static AccessStore instance;
     private Connection connection = null;
     private String message = null;
-    private String databaseURL = null;
     String databaseURLx = "jdbc:ucanaccess://c://users//colin//OneDrive//documents"
             + "//Databases//Access//ClinicPMS.accdb;showSchema=true";
     
     DateTimeFormatter ymdFormat = DateTimeFormatter.ofPattern("yyyy/MM/dd");
     
     private MigrationManager migrationManager = null;
-    
-    private void setConnection(Connection con){
-        this.connection = con;
-    }
     
     public String getDatabaseURL()throws StoreException{
         String result = null;
@@ -75,6 +66,7 @@ public class AccessStore extends Store {
                 FileReader fr = new FileReader(file);
                 br = new BufferedReader(fr);
                 result = br.readLine();
+                return result;
             }
             else{
                 throw new StoreException(
@@ -82,25 +74,14 @@ public class AccessStore extends Store {
             }
         }
         catch(IOException ex){
-            
-        }
-        finally{
-            try{
-                if (br!=null){
-                    br.close();
-                }
-                
-            }
-            catch (IOException exFinal){
-
-            }
-            return result;
+            message = "IOException -> " + ex.getMessage() + "\n";
+            throw new StoreException(
+                    "StoreException -> raised in AccessStore::getDatabaseURL() when trying to read the 'database.txt' file",ExceptionType.IO_EXCEPTION );
         }
     }
     
     private Connection getConnection()throws StoreException{
         String url = "jdbc:ucanaccess://" + getDatabaseURL() + ";showSchema=true";
-        Connection result = null;
         if (connection == null){
             try{
                 connection = DriverManager.getConnection(url);
@@ -122,7 +103,7 @@ public class AccessStore extends Store {
     
     public static AccessStore getInstance() throws StoreException{
         
-        AccessStore result = null;
+        AccessStore result;
         if (instance == null) {
             result = new AccessStore();
             instance = result;
@@ -134,9 +115,9 @@ public class AccessStore extends Store {
     
     @Override
     public Appointment create(Appointment a) throws StoreException{
-        ArrayList<Appointment> value = null;
-        Appointment appointment = null;
-        Patient patient = null;
+        ArrayList<Appointment> value;
+        Appointment appointment;
+        Patient patient;
         message = "";
         try{
             if (getConnection().getAutoCommit()){
@@ -187,8 +168,8 @@ public class AccessStore extends Store {
      * --so nested try-catch blocks are used to wrap the additional exceptions as StoreExceptions if generated
      */
     public Patient create(Patient p) throws StoreException{
-        ArrayList<Patient> value = null;
-        Patient patient = null;
+        ArrayList<Patient> value;
+        Patient patient;
         message = "";
         try{//ensure auto commit setting switched off
             if (getConnection().getAutoCommit()){
@@ -217,6 +198,7 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public void delete(Appointment a) throws StoreException{
         try{//ensure auto commit setting switched off
             if (getConnection().getAutoCommit()){
@@ -224,8 +206,8 @@ public class AccessStore extends Store {
             }
             runSQL(AppointmentSQL.DELETE_APPOINTMENT_WITH_KEY, a, new ArrayList<Appointment>());
             ArrayList value = runSQL(AppointmentSQL.READ_APPOINTMENT_WITH_KEY, a, new ArrayList<Appointment>());
-            if (value.size()!=0){
-                String message = 
+            if (!value.isEmpty()){
+                message = 
                         "Unsuccesful attempt to delete appointment record (key = "
                         + String.valueOf(a.getKey()) + ")";
                 getConnection().rollback();
@@ -242,18 +224,20 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public void delete(Patient p) throws StoreException{
         
     }
     
+    @Override
     public Appointment read(Appointment a) throws StoreException{
-        ArrayList<Patient> patients = null;
+        ArrayList<Patient> patients;
         try{//ensure auto commit setting switched on
             if (!getConnection().getAutoCommit()){
                 getConnection().setAutoCommit(true);
             }
             ArrayList<Appointment> appointments = 
-                runSQL(AppointmentSQL.READ_APPOINTMENT_WITH_KEY,a,  new ArrayList<Appointment>());
+                runSQL(AppointmentSQL.READ_APPOINTMENT_WITH_KEY,a,  new ArrayList<>());
             Appointment appointment = appointments.get(0);
             if (appointment.getPatient()!=null){
                 patients = runSQL(PatientSQL.READ_PATIENT_WITH_KEY,appointment.getPatient(), new ArrayList<Patient>());
@@ -269,6 +253,7 @@ public class AccessStore extends Store {
         }
     }
 
+    @Override
     public Patient read(Patient p) throws StoreException{
         try{//ensure auto commit setting switched on
             if (!getConnection().getAutoCommit()){
@@ -276,7 +261,7 @@ public class AccessStore extends Store {
             }
             ArrayList<Patient> patients = 
                 runSQL(PatientSQL.READ_PATIENT_WITH_KEY,p,  new ArrayList<Patient>());
-            if (patients.size() == 0){//patient with this key not found
+            if (patients.isEmpty()){//patient with this key not found
                 throw new StoreException(
                         "Could not find patient with key = " + String.valueOf(p.getKey()), 
                         ExceptionType.KEY_NOT_FOUND_EXCEPTION);
@@ -297,13 +282,14 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public ArrayList<Appointment> readAppointmentsFrom(LocalDate day) throws StoreException{
         try{//ensure auto commit setting switched on
             if (!getConnection().getAutoCommit()){
                 getConnection().setAutoCommit(true);
             }
             ArrayList<Appointment> appointments = 
-                runSQL(AppointmentSQL.READ_APPOINTMENTS_FROM_DAY,day, new ArrayList<Appointment>());
+                runSQL(AppointmentSQL.READ_APPOINTMENTS_FROM_DAY,day, new ArrayList<>());
             Iterator<Appointment> it = appointments.iterator();
             while(it.hasNext()){
                 Appointment appointment = it.next();
@@ -319,6 +305,7 @@ public class AccessStore extends Store {
         }  
     }
     
+    @Override
     public ArrayList<Appointment> readAppointments(LocalDate day) throws StoreException{
         try{//ensure auto commit setting switched on
             if (!getConnection().getAutoCommit()){
@@ -341,13 +328,14 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public ArrayList<Appointment> readAppointments(Patient p, Appointment.Category c) throws StoreException{
         try{//ensure auto commit setting switched on
             if (!getConnection().getAutoCommit()){
                 getConnection().setAutoCommit(true);
             }
             ArrayList<Appointment> appointments = 
-                runSQL(AppointmentSQL.READ_APPOINTMENTS_FOR_PATIENT,p, new ArrayList<Appointment>());
+                runSQL(AppointmentSQL.READ_APPOINTMENTS_FOR_PATIENT,p, new ArrayList<>());
             return appointments;
         }
         catch (SQLException ex){
@@ -357,13 +345,14 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public ArrayList<Patient> readPatients() throws StoreException{
         try{//ensure auto commit setting switched on
             if (!getConnection().getAutoCommit()){
                 getConnection().setAutoCommit(true);
             }
             ArrayList<Patient> patients = 
-                runSQL(PatientSQL.READ_ALL_PATIENTS,new Patient(), new ArrayList<Patient>());
+                runSQL(PatientSQL.READ_ALL_PATIENTS,new Patient(), new ArrayList<>());
             return patients;
         }
         catch (SQLException ex){
@@ -373,15 +362,16 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public Patient update(Patient p) throws StoreException{
         try{//ensure auto commit setting switched off
             if (getConnection().getAutoCommit()){
                 getConnection().setAutoCommit(false);
             }
-            runSQL(PatientSQL.UPDATE_PATIENT, p, new ArrayList<Patient>());
+            runSQL(PatientSQL.UPDATE_PATIENT, p, new ArrayList<>());
             ArrayList<Patient> patients = 
                 runSQL(PatientSQL.READ_PATIENT_WITH_KEY,p,  new ArrayList<Patient>());
-            if (patients.size() == 0){//patient with this key not found
+            if (patients.isEmpty()){//patient with this key not found
                 getConnection().rollback();
                 message = "StoreException raised in method AccessStore::update(Patient p)\n"
                                 + "Reason -> newly updated appointment record (" + String.valueOf(p.getKey()) + ") could not be found";
@@ -401,12 +391,14 @@ public class AccessStore extends Store {
         }
         
     }
+    
+    @Override
     public Appointment update(Appointment a) throws StoreException{
         try{//ensure auto commit setting switched off
             if (getConnection().getAutoCommit()){
                 getConnection().setAutoCommit(false);
             }
-            runSQL(AppointmentSQL.UPDATE_APPOINTMENT, a, new ArrayList<Appointment>());
+            runSQL(AppointmentSQL.UPDATE_APPOINTMENT, a, new ArrayList<>());
             ArrayList<Appointment> result = runSQL(AppointmentSQL.READ_APPOINTMENT_WITH_KEY, a, new ArrayList<Appointment>());
             if (result.isEmpty()){
                 message = "StoreException raised in method AccessStore::update(Appointment a)\n"
@@ -697,7 +689,7 @@ public class AccessStore extends Store {
     private ArrayList<Appointment> runSQL(
             AppointmentSQL q, Object entity, ArrayList<Appointment> appointments) throws StoreException{
         ArrayList<Appointment> records = appointments;
-        String sql = null;
+        String sql;
         sql = 
                 switch (q){
                     case APPOINTMENTS_COUNT ->
@@ -906,7 +898,6 @@ public class AccessStore extends Store {
     
     public void tidyPatientImportedDate()throws StoreException{
         //for each record in patient
-        ArrayList<Patient> updatedPatients = null;
         ArrayList<Patient> patients = runSQL(PatientSQL.READ_ALL_PATIENTS,
                 new Patient(), new ArrayList<Patient>());
         Iterator<Patient> patientsIT = patients.iterator();
@@ -1140,7 +1131,7 @@ public class AccessStore extends Store {
     }
     
     private void runSQL(MigrationPatientSQL q)throws StoreException{
-        String sql = null;
+        String sql;
         sql = 
                 switch(q){
                     
@@ -1193,6 +1184,7 @@ public class AccessStore extends Store {
         }
     }
     
+    @Override
     public MigrationManager getMigrationManager(){
         return migrationManager;
     }
@@ -1204,44 +1196,74 @@ public class AccessStore extends Store {
         private int unfilteredAppointmentCount = 0;
         private int nonExistingPatientsReferencedByAppointmentsCount = 0;
         private int patientCount = 0;
+        private int appointmentCount = 0;
         
+        @Override
+        public int getAppointmentCount(){
+            return appointmentCount; 
+        }
         
+        @Override
+        public void setAppointmentCount(int value){
+            appointmentCount = value;
+        }
+        
+        @Override
         public int getPatientCount(){
             return patientCount; 
         }
+        
+        @Override
         public void setPatientCount(int value){
             patientCount = value;
         }
+        
+        @Override
         public int getFilteredAppointmentCount(){
             return filteredAppointmentCount; 
         }
+        
+        @Override
         public void setFilteredAppointmentCount(int value){
             filteredAppointmentCount = value;
         }
+        
+        @Override
         public int getUnfilteredAppointmentCount(){
             return unfilteredAppointmentCount; 
         }
+        
+        @Override
         public void setUnfilteredAppointmentCount(int value){
             unfilteredAppointmentCount = value;
         }
+        
+        @Override
         public int getNonExistingPatientsReferencedByAppointmentsCount(){
             return nonExistingPatientsReferencedByAppointmentsCount;
         }
+        
+        @Override
         public void setNonExistingPatientsReferencedByAppointmentsCount(int value){
             nonExistingPatientsReferencedByAppointmentsCount = value;
         }
+        
+        @Override
         public ArrayList<clinicpmsdatamigrator.model.Appointment> getAppointments(){
             return appointments;
         }
 
+        @Override
         public ArrayList<clinicpmsdatamigrator.model.Patient> getPatients(){
             return patients;
         }
 
+        @Override
         public void setAppointments(ArrayList<clinicpmsdatamigrator.model.Appointment> value){
             appointments = value;
         }
 
+        @Override
         public void setPatients(ArrayList<clinicpmsdatamigrator.model.Patient> value){
             patients = value;
         }
@@ -1252,6 +1274,7 @@ public class AccessStore extends Store {
          * -- in particular, the patient must be populated before the APPOINTMENT_TABLE_INTEGRITY_CHECK
          * @throws StoreException 
          */
+        @Override
         public void action(Store.MigrationMethod mm)throws StoreException{
             int count = 0;
             switch (mm){
@@ -1259,9 +1282,8 @@ public class AccessStore extends Store {
                     AccessStore.getInstance().getMigrationManager().dropAppointmentTable();
                 case APPOINTMENT_TABLE_CREATE -> 
                     AccessStore.getInstance().getMigrationManager().createAppointmentTable();
-                case APPOINTMENT_TABLE_POPULATE -> 
+                case APPOINTMENT_TABLE_POPULATE -> {
                     AccessStore.getInstance().getMigrationManager().insertMigratedAppointments(getAppointments());
-                case APPOINTMENTS_COUNT ->{
                     count = AccessStore.getInstance().getMigrationManager().getAppointmentsCount();
                     this.setUnfilteredAppointmentCount(count);
                 }
@@ -1269,14 +1291,16 @@ public class AccessStore extends Store {
                     AccessStore.getInstance().getMigrationManager().dropPatientTable();
                 case PATIENT_TABLE_CREATE ->
                     AccessStore.getInstance().getMigrationManager().createPatientTable(); 
-                case PATIENT_TABLE_POPULATE -> 
+                case PATIENT_TABLE_POPULATE -> {
                     AccessStore.getInstance().getMigrationManager().insertMigratedPatients(getPatients());
-                case PATIENTS_COUNT ->{
                     count = AccessStore.getInstance().getMigrationManager().getPatientsCount();
                     this.setPatientCount(count);
                 }
-                case APPOINTMENT_TABLE_INTEGRITY_CHECK ->
+                case APPOINTMENT_TABLE_INTEGRITY_CHECK ->{
                     AccessStore.getInstance().getMigrationManager().migratedAppointmentsIntegrityCheck();
+                    count = AccessStore.getInstance().getMigrationManager().getAppointmentsCount();
+                    this.setAppointmentCount(count);
+                }
                 case APPOINTMENT_START_TIMES_NORMALISED ->
                     AccessStore.getInstance().getMigrationManager().normaliseAppointmentStartTimes();
                 case PATIENT_TABLE_TIDY -> 
@@ -1293,7 +1317,7 @@ public class AccessStore extends Store {
                 }
                 Patient patient = new Patient();
                 ArrayList<Patient> value = runSQL(PatientSQL.PATIENTS_COUNT, 
-                patient, new ArrayList<Patient>());
+                patient, new ArrayList<>());
                 return value.get(0).getKey();
             }
             catch (SQLException ex){
@@ -1309,7 +1333,7 @@ public class AccessStore extends Store {
                 }
                 Appointment appointment = new Appointment();
                 ArrayList<Appointment> value = runSQL(AppointmentSQL.APPOINTMENTS_COUNT, 
-                appointment, new ArrayList<Appointment>());
+                appointment, new ArrayList<>());
                 return value.get(0).getKey();
             }
             catch (SQLException ex){
@@ -1376,7 +1400,6 @@ public class AccessStore extends Store {
         }
 
         private void insertMigratedPatients(ArrayList<Patient> patients)throws StoreException{
-            ArrayList<Patient> ps = new ArrayList<>();
             try{
                 if (!getConnection().getAutoCommit()){
                     getConnection().setAutoCommit(true);
@@ -1403,7 +1426,6 @@ public class AccessStore extends Store {
          * @throws StoreException, used to identify when appointments refer to a non-existing patient key 
          */
         private void migratedAppointmentsIntegrityCheck()throws StoreException{
-            int nonExistingPatientReferencedByAppointments = 0;
             Integer key = null;
             HashSet<Integer> nonExistingPatientsReferencedbyAppointments = new HashSet<>();
             HashSet<Integer> patientSet = new HashSet<>();
@@ -1441,7 +1463,6 @@ public class AccessStore extends Store {
                 throw new StoreException(message + "StoreException -> unexpected error accessing AutoCommit/commit/rollback setting in AccessStore.MigrationManager::migratedAppointmentsIntegrityCheck()",
                 ExceptionType.SQL_EXCEPTION);
             }
-   
         }
         
         public void migratedPatientsTidied()throws StoreException{
@@ -1472,8 +1493,8 @@ public class AccessStore extends Store {
          * @throws StoreException 
          */
         private Patient dataMigrationCreate(Patient p) throws StoreException{
-            ArrayList<Patient> value = null;
-            Patient patient = null;
+            ArrayList<Patient> value;
+            Patient patient;
             message = "";
             try{//turn off jdbc driver's auto commit after each SQL statement
                 if (getConnection().getAutoCommit()){
@@ -1510,9 +1531,9 @@ public class AccessStore extends Store {
          * @throws StoreException 
          */
         private Appointment dataMigrationCreate(Appointment a) throws StoreException{
-            ArrayList<Appointment> value = null;
-            Appointment appointment = null;
-            Patient patient = null;
+            ArrayList<Appointment> value;
+            Appointment appointment;
+            Patient patient;
             message = "";
             
             try{//turn off jdbc driver's auto commit after each SQL statement
@@ -1560,7 +1581,6 @@ public class AccessStore extends Store {
          * @throws StoreException 
          */
         private void insertMigratedAppointments(ArrayList<Appointment> appointments)throws StoreException{
-            int result = 0;
             try{
                 if (!getConnection().getAutoCommit()){
                     getConnection().setAutoCommit(true);

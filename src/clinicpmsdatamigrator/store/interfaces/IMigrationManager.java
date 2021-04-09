@@ -22,10 +22,12 @@ public interface IMigrationManager {
     public ArrayList<Patient> getPatients();
     public void setAppointments(ArrayList<Appointment> appointments);
     public void setPatients(ArrayList<Patient> patients);
+    public int getAppointmentCount();
     public int getPatientCount();
     public int getNonExistingPatientsReferencedByAppointmentsCount();
     public int getUnfilteredAppointmentCount();
     public int getFilteredAppointmentCount();
+    public void setAppointmentCount(int value);
     public void setPatientCount(int count);
     public void setNonExistingPatientsReferencedByAppointmentsCount(int count);
     public void setUnfilteredAppointmentCount(int count);

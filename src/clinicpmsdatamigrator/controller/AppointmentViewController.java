@@ -5,8 +5,6 @@
  */
 package clinicpmsdatamigrator.controller;
 
-import clinicpmsdatamigrator.model.Appointment;
-import clinicpmsdatamigrator.model.Patient;
 import clinicpmsdatamigrator.view.AppointmentMigratorView;
 import clinicpmsdatamigrator.view.View;
 import clinicpmsdatamigrator.store.CSVMigrationManager;
@@ -16,7 +14,7 @@ import clinicpmsdatamigrator.store.interfaces.IStore;
 import clinicpmsdatamigrator.store.interfaces.IMigrationManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.beans.PropertyChangeEvent;
+
 import java.beans.PropertyChangeSupport;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -24,10 +22,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDate;
-import java.util.ArrayList;
+import java.time.Duration;
+import java.time.Instant;
+
 import javax.swing.JFrame;
-import javax.swing.JInternalFrame;
+
 import javax.swing.JOptionPane;
 
 /**
@@ -158,5 +157,54 @@ public class AppointmentViewController extends ViewController {
     }
     private void setMyController(ActionListener myController){
         this.myController = myController;
+    }
+    
+    private void doDataMigrationActionWithIndex(int index, IMigrationManager manager){
+        Instant start;
+        Instant end;
+        Duration duration;
+        try{
+            switch(index){
+                case 1 ->{
+                    start = Instant.now();
+                    manager.action(Store.MigrationMethod.APPOINTMENT_TABLE_DROP);
+                    manager.action(Store.MigrationMethod.APPOINTMENT_TABLE_CREATE);
+                    manager.action(Store.MigrationMethod.APPOINTMENT_TABLE_POPULATE); 
+                    manager.action(Store.MigrationMethod.APPOINTMENT_START_TIMES_NORMALISED);
+                    end = Instant.now();
+                    duration = Duration.between(start, end);
+                    
+                }
+                case 2 ->{
+                    start = Instant.now();
+                    manager.action(Store.MigrationMethod.PATIENT_TABLE_DROP);
+                    manager.action(Store.MigrationMethod.PATIENT_TABLE_CREATE);
+                    manager.action(Store.MigrationMethod.PATIENT_TABLE_POPULATE);
+                    end = Instant.now();
+                    duration = Duration.between(start, end);
+                }
+                case 3 ->{
+                    start = Instant.now();
+                    manager.action(Store.MigrationMethod.APPOINTMENT_TABLE_INTEGRITY_CHECK);
+                    end = Instant.now();
+                    duration = Duration.between(start, end);
+                }
+                case 4 ->{
+                    start = Instant.now();
+                    manager.action(Store.MigrationMethod.PATIENT_TABLE_TIDY);
+                    end = Instant.now();
+                    duration = Duration.between(start, end);
+                    
+                }
+            }
+        }
+        catch (StoreException ex){
+            JOptionPane.showMessageDialog(null,
+                                      new ErrorMessagePanel(ex.getMessage()));
+        }
+        
+        
+        
+            
     }
 }
